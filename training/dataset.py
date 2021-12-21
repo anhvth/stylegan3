@@ -50,6 +50,9 @@ class Dataset(torch.utils.data.Dataset):
             self._raw_idx = np.tile(self._raw_idx, 2)
             self._xflip = np.concatenate([self._xflip, np.ones_like(self._xflip)])
 
+        item = self.__getitem__(0)
+
+
     def _get_raw_labels(self):
         if self._raw_labels is None:
             self._raw_labels = self._load_raw_labels() if self._use_labels else None

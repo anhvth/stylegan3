@@ -1,4 +1,11 @@
-data
-__*
-training-runs
+
+training-runs/
+**/__pycache__/
+**/*.pkl
+**/*.pth
+data/
+results
+*.mp4
 .ipynb_checkpoints/
+segmentation_in_style/
+.cache

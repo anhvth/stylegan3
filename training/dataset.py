@@ -10,6 +10,7 @@
 
 import os
 import numpy as np
+import mmcv
 import zipfile
 import PIL.Image
 import json
@@ -49,9 +50,6 @@ class Dataset(torch.utils.data.Dataset):
         if xflip:
             self._raw_idx = np.tile(self._raw_idx, 2)
             self._xflip = np.concatenate([self._xflip, np.ones_like(self._xflip)])
-
-        item = self.__getitem__(0)
-
 
     def _get_raw_labels(self):
         if self._raw_labels is None:
@@ -155,6 +153,28 @@ class Dataset(torch.utils.data.Dataset):
         return self._get_raw_labels().dtype == np.int64
 
 #----------------------------------------------------------------------------
+def read_rgb_gray(path):
+    if True:#np.random.choice(2)==0:
+        img = mmcv.imread(path, 0)
+        img = np.stack([img]*3, -1)
+    else:
+        img = mmcv.imread(path, channel_order='rgb')
+    return img
+
+from avcv.utils import memoize
+
+@memoize
+def get_file_names(directory):
+    import os
+    from glob import glob
+    import os.path as osp
+    directory = osp.normpath(directory)+'/'
+    paths = glob(osp.join(directory, '**/*.jpg'), recursive=True)
+
+    fnames = [fn.replace(directory, '') for fn in paths] 
+    # import ipdb; ipdb.set_trace()
+    return fnames
+
 
 class ImageFolderDataset(Dataset):
     def __init__(self,
@@ -167,7 +187,10 @@ class ImageFolderDataset(Dataset):
 
         if os.path.isdir(self._path):
             self._type = 'dir'
-            self._all_fnames = {os.path.relpath(os.path.join(root, fname), start=self._path) for root, _dirs, files in os.walk(self._path) for fname in files}
+            # self._all_fnames = {os.path.relpath(os.path.join(root, fname), start=self._path) for root, _dirs, files in os.walk(self._path) for fname in files}
+            self._all_fnames = get_file_names(self._path)
+            
+
         elif self._file_ext(self._path) == '.zip':
             self._type = 'zip'
             self._all_fnames = set(self._get_zipfile().namelist())
@@ -214,11 +237,12 @@ class ImageFolderDataset(Dataset):
 
     def _load_raw_image(self, raw_idx):
         fname = self._image_fnames[raw_idx]
-        with self._open_file(fname) as f:
-            if pyspng is not None and self._file_ext(fname) == '.png':
-                image = pyspng.load(f.read())
-            else:
-                image = np.array(PIL.Image.open(f))
+        image = read_rgb_gray(os.path.join(self._path, fname))
+        # with self._open_file(fname) as f:
+        #     if pyspng is not None and self._file_ext(fname) == '.png':
+        #         image = pyspng.load(f.read())
+        #     else:
+        #         image = np.array(PIL.Image.open(f))
         if image.ndim == 2:
             image = image[:, :, np.newaxis] # HW => HWC
         image = image.transpose(2, 0, 1) # HWC => CHW
